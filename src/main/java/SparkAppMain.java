@@ -58,8 +58,8 @@ public class SparkAppMain {
     }
     public static double distanceToCentroid(Vector datum, KMeansModel model) {
         int cluster = model.predict(datum);
-        Vector[] centroid = model.clusterCenters();
-        return Math.sqrt(Vectors.sqdist(datum, centroid[0]));
+        Vector centroid = model.clusterCenters()[cluster];
+        return Math.sqrt(Vectors.sqdist(centroid, datum));
     }
     public static double clusteringScore(RDD<Vector> data, int k) {
         KMeans kMeans = new KMeans();
@@ -70,15 +70,9 @@ public class SparkAppMain {
     }
     public static void main(String[] args) throws IOException {
         SparkConf sparkConf = new SparkConf().setAppName("Anomaly Detection");
-                //.setMaster("local[*]");
         JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
         JavaRDD<String> javaRDD = sparkContext.textFile("hdfs://localhost:9000/user/hdoop/data/kddcup.data");
-//        JavaRDD<String> splits = javaRDD.map(r -> r.substring(r.lastIndexOf(",") + 1));
-//        Map<String, Long> countByValue = splits.countByValue();
-//        Map<String, Long> sortedCountByValue = new LinkedHashMap<String, Long>();
-//        countByValue.entrySet().stream().sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).forEachOrdered(x -> sortedCountByValue.put(x.getKey(), x.getValue()))
         JavaPairRDD<String, Vector> labelsAndData = javaRDD.mapToPair(line -> {
-//            System.out.println(line);
            List<String> ll = Arrays.asList(line.split(","));
            List<String> list = new ArrayList<String>(ll);
            list.remove(1);
@@ -91,13 +85,10 @@ public class SparkAppMain {
            }
            Vector dv = Vectors.dense(vectorArray);
            return new Tuple2<String, Vector>(label, dv);
-                });
-           JavaRDD<Vector> data =  labelsAndData.values().cache();
-           KMeans kmeans = new KMeans();
-           KMeansModel model = kmeans.run(data.rdd());
-//           for(int i=0; i<model.clusterCenters().length; ++i) {
-//               System.out.println(model.clusterCenters()[i]);
-//           }
+        });
+        JavaRDD<Vector> data =  labelsAndData.values().cache();
+        KMeans kmeans = new KMeans();
+        KMeansModel model = kmeans.run(data.rdd());
         System.out.println("------------------------------------------");
         Map<Tuple2<Integer, String>, Long> clusterLabelCountRDD = labelsAndData.mapToPair(t -> {
             String label = t._1;
@@ -106,14 +97,13 @@ public class SparkAppMain {
             return new Tuple2<Integer, String>(cluster, label);
         }).countByValue();
 
-       // System.out.println(clusterLabelCountRDD);
-
         for(Tuple2<Integer, String> key: clusterLabelCountRDD.keySet()){
             System.out.println(key.toString() + " : " + clusterLabelCountRDD.get(key));
         }
 
-
-
+        for(int i=5; i<=40; i+=5){
+            System.out.println(i + "\t" + clusteringScore(JavaRDD.toRDD(data), i));
+        }
 
     }
 }
