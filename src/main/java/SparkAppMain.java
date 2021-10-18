@@ -10,6 +10,7 @@ import org.apache.spark.mllib.clustering.*;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.rdd.RDD;
 import scala.Tuple2;
+import shapeless.Tuple;
 
 //import javax.swing.*;
 import java.io.IOException;
@@ -77,11 +78,12 @@ public class SparkAppMain {
 //        Map<String, Long> sortedCountByValue = new LinkedHashMap<String, Long>();
 //        countByValue.entrySet().stream().sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).forEachOrdered(x -> sortedCountByValue.put(x.getKey(), x.getValue()))
         JavaPairRDD<String, Vector> labelsAndData = javaRDD.mapToPair(line -> {
+//            System.out.println(line);
            List<String> ll = Arrays.asList(line.split(","));
            List<String> list = new ArrayList<String>(ll);
            list.remove(1);
-           list.remove(2);
-           list.remove(3);
+           list.remove(1);
+           list.remove(1);
            String label = list.remove(list.size()-1);
            double vectorArray[] = new double[list.size()];
            for(int l=0; l<list.size(); ++l) {
@@ -96,11 +98,22 @@ public class SparkAppMain {
 //           for(int i=0; i<model.clusterCenters().length; ++i) {
 //               System.out.println(model.clusterCenters()[i]);
 //           }
-//        System.out.println("------------------------------------------");
-//        JavaPairRDD<Integer, String> clusterLabelCount = labelsAndData.map((label, datum) -> {
-//            int cluster = model.predict(datum);
-//            return new Tuple2<Integer, String>(cluster, label);
-//        }).countByValue();
+        System.out.println("------------------------------------------");
+        Map<Tuple2<Integer, String>, Long> clusterLabelCountRDD = labelsAndData.mapToPair(t -> {
+            String label = t._1;
+            Vector datum = t._2;
+            int cluster = model.predict(datum);
+            return new Tuple2<Integer, String>(cluster, label);
+        }).countByValue();
+
+       // System.out.println(clusterLabelCountRDD);
+
+        for(Tuple2<Integer, String> key: clusterLabelCountRDD.keySet()){
+            System.out.println(key.toString() + " : " + clusterLabelCountRDD.get(key));
+        }
+
+
+
 
     }
 }
